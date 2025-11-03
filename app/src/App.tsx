@@ -28,6 +28,10 @@ export default function App() {
   const [chainId, setChainId] = useState<number>();
   const [streamCounter, setStreamCounter] = useState<string>("…");
   const [loading, setLoading] = useState<boolean>(false);
+  const [view, setView] = useState<"employer" | "employee">(() => {
+    const hash = window.location.hash.toLowerCase();
+    return hash.includes("employee") ? "employee" : "employer";
+  });
 
   const [employee, setEmployee] = useState<string>("");
   const [totalAmount, setTotalAmount] = useState<string>("0");
@@ -42,6 +46,10 @@ export default function App() {
   const [allowance, setAllowance] = useState<string>("—");
   const [queryStreamId, setQueryStreamId] = useState<string>("0");
   const [queriedStream, setQueriedStream] = useState<any | null>(null);
+  const [employeeStreams, setEmployeeStreams] = useState<
+    Array<{ id: string; vested: string }>
+  >([]);
+  const [withdrawMessage, setWithdrawMessage] = useState<string>("");
 
   const shortAddr = useMemo(
     () => (address ? address.slice(0, 6) + "…" + address.slice(-4) : ""),
@@ -69,12 +77,24 @@ export default function App() {
         const accounts = (await provider.send("eth_accounts", [])) as string[];
         if (accounts && accounts[0]) setAddress(accounts[0]);
         await refreshCounter();
-        (provider as any).on?.("chainChanged", () => window.location.reload());
-        (provider as any).on?.("accountsChanged", (accs: string[]) =>
+        const eth: any = (window as any).ethereum;
+        eth?.removeAllListeners?.("chainChanged");
+        eth?.removeAllListeners?.("accountsChanged");
+        eth?.on?.("chainChanged", () => window.location.reload());
+        eth?.on?.("accountsChanged", (accs: string[]) =>
           setAddress(accs?.[0] ?? "")
         );
       } catch {}
     })();
+  }, []);
+
+  useEffect(() => {
+    function onHashChange() {
+      const hash = window.location.hash.toLowerCase();
+      setView(hash.includes("employee") ? "employee" : "employer");
+    }
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
   async function refreshCounter() {
@@ -144,10 +164,7 @@ export default function App() {
     try {
       const { signer } = await connectWallet();
       const contract = await getPayrollContract(signer);
-      const amountBase = parseUnits(
-        (depositAmount || "0") as `${number}` | `${bigint}` | string,
-        USDC_DECIMALS
-      );
+      const amountBase = parseUnits(depositAmount || "0", USDC_DECIMALS);
       const tx = await contract.deposit(depositStreamId, amountBase);
       await tx.wait();
       await refreshAllowance();
@@ -160,10 +177,36 @@ export default function App() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { signer } = await connectWallet();
+      const { signer, address: owner } = await connectWallet();
       const contract = await getPayrollContract(signer);
-      const tx = await contract.withdraw(withdrawStreamId);
-      await tx.wait();
+      console.log("contract", contract);
+      console.log("owner", owner);
+
+      // const who = owner || address;
+      // if (!who) return;
+      const ids = await contract.getEmployeeStreams(owner);
+      console.log("ids", ids);
+      // if (!ids || ids.length === 0) return;
+      const id = ids[ids.length - 1]?.toString?.();
+      console.log("id", id);
+      const vested: any = await contract.calculateVested(id);
+      console.log("vested", vested);
+      // const vestedBig = BigInt(vested?.toString?.() ?? String(vested));
+      // if (vestedBig === 0n) {
+      //   setWithdrawMessage("No vested funds available yet.");
+      //   return;
+      // }
+      // const usdc = getErc20(USDC_ADDRESS, signer);
+      // const bal = await (usdc as any).balanceOf(PAYROLL_ESCROW_ADDRESS);
+      // const balBig = BigInt(bal?.toString?.() ?? String(bal));
+      // if (balBig < vestedBig) {
+      //   setWithdrawMessage("Escrow not funded enough to cover vested amount.");
+      //   return;
+      // }
+      const tx = await contract.withdraw(BigInt(id));
+      console.log("tx", tx);
+      // await tx.wait();
+      setWithdrawMessage(`Withdrawn from stream #${id}.`);
     } finally {
       setLoading(false);
     }
@@ -186,6 +229,29 @@ export default function App() {
         active: Boolean(s.active),
         cancelled: Boolean(s.cancelled),
       });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onLoadEmployeeStreams() {
+    setLoading(true);
+    try {
+      const c = await getPayrollContract();
+      const owner = address;
+      if (!owner) {
+        await onConnect();
+      }
+      const who = owner || address;
+      if (!who) return;
+      const ids: Array<any> = await (c as any).getEmployeeStreams(who);
+      const list: Array<{ id: string; vested: string }> = [];
+      for (const rawId of ids as any[]) {
+        const id = rawId?.toString?.() ?? String(rawId);
+        const vested = await (c as any).calculateVested(id);
+        list.push({ id, vested: vested?.toString?.() ?? String(vested) });
+      }
+      setEmployeeStreams(list);
     } finally {
       setLoading(false);
     }
@@ -225,197 +291,216 @@ export default function App() {
         </div>
       </div>
 
+      <div className="tabs">
+        <a
+          href="#/employer"
+          className={`btn tab ${view === "employer" ? "tab-active" : ""}`}
+          onClick={() => setView("employer")}
+        >
+          Employer
+        </a>
+        <a
+          href="#/employee"
+          className={`btn tab ${view === "employee" ? "tab-active" : ""}`}
+          onClick={() => setView("employee")}
+        >
+          Employee
+        </a>
+      </div>
+
       <div className="grid">
-        <div className="card">
-          <h3>Contract</h3>
-          <div className="section">
-            <LabelValue label="Address" value={shortContract} />
-            <LabelValue
-              label="USDC"
-              value={USDC_ADDRESS.slice(0, 5) + "…" + USDC_ADDRESS.slice(-3)}
-            />
-            <LabelValue label="Stream Counter" value={streamCounter} />
-            <div className="row">
-              <button
-                className="btn"
-                onClick={refreshCounter}
-                disabled={loading}
-              >
-                Refresh
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <form className="card" onSubmit={onApprove}>
-          <h3>Approve USDC</h3>
-          <div className="section">
-            <LabelValue label="Current Allowance" value={allowance} />
-            <label>
-              Amount to Approve (USDC)
-              <input
-                className="input"
-                required
-                type="number"
-                min="0"
-                value={approveAmount}
-                onChange={(e) => setApproveAmount(e.target.value)}
-              />
-            </label>
-            <div className="row">
-              <button className="btn primary" type="submit" disabled={loading}>
-                Approve
-              </button>
-              <button
-                className="btn"
-                type="button"
-                onClick={() => refreshAllowance()}
-                disabled={loading}
-              >
-                Refresh my Allowance
-              </button>
-            </div>
-          </div>
-        </form>
-
-        <form className="card" onSubmit={onFetchStream}>
-          <h3>Get Stream</h3>
-          <div className="section">
-            <label>
-              Stream ID
-              <input
-                className="input"
-                required
-                type="number"
-                min="0"
-                value={queryStreamId}
-                onChange={(e) => setQueryStreamId(e.target.value)}
-              />
-            </label>
-            <button className="btn primary" type="submit" disabled={loading}>
-              Fetch
-            </button>
-            {queriedStream && (
-              <div className="section" style={{ marginTop: 8 }}>
-                <LabelValue label="Employer" value={queriedStream.employer} />
-                <LabelValue label="Employee" value={queriedStream.employee} />
+        {view === "employer" && (
+          <>
+            <div className="card">
+              <h3>Contract</h3>
+              <div className="section">
+                <LabelValue label="Address" value={shortContract} />
                 <LabelValue
-                  label="Total Amount"
-                  value={formatUnits(queriedStream.totalAmount, USDC_DECIMALS)}
+                  label="USDC"
+                  value={
+                    USDC_ADDRESS.slice(0, 5) + "…" + USDC_ADDRESS.slice(-3)
+                  }
                 />
-                <LabelValue
-                  label="Withdrawn"
-                  value={queriedStream.withdrawnAmount}
-                />
-                <LabelValue
-                  label="Start Time"
-                  value={queriedStream.startTime}
-                />
-                <LabelValue label="End Time" value={queriedStream.endTime} />
-                <LabelValue
-                  label="Active"
-                  value={String(queriedStream.active)}
-                />
-                <LabelValue
-                  label="Cancelled"
-                  value={String(queriedStream.cancelled)}
-                />
+                <LabelValue label="Stream Counter" value={streamCounter} />
+                <div className="row">
+                  <button
+                    className="btn"
+                    onClick={refreshCounter}
+                    disabled={loading}
+                  >
+                    Refresh
+                  </button>
+                </div>
               </div>
-            )}
-          </div>
-        </form>
+            </div>
 
-        <form className="card" onSubmit={onCreateStream}>
-          <h3>Create Stream</h3>
-          <div className="section">
-            <label>
-              Employee Address
-              <input
-                className="input"
-                required
-                value={employee}
-                onChange={(e) => setEmployee(e.target.value)}
-                placeholder="0x..."
-              />
-            </label>
-            <label>
-              Total Amount (USDC)
-              <input
-                className="input"
-                required
-                type="number"
-                min="0"
-                value={totalAmount}
-                onChange={(e) => setTotalAmount(e.target.value)}
-              />
-            </label>
-            <label>
-              Duration (seconds)
-              <input
-                className="input"
-                required
-                type="number"
-                min="1"
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
-              />
-            </label>
-            <button className="btn primary" type="submit" disabled={loading}>
-              Create
-            </button>
-          </div>
-        </form>
+            <form className="card" onSubmit={onApprove}>
+              <h3>Approve USDC</h3>
+              <div className="section">
+                <LabelValue label="Current Allowance" value={allowance} />
+                <label>
+                  Amount to Approve (USDC)
+                  <input
+                    className="input"
+                    required
+                    type="number"
+                    min="0"
+                    value={approveAmount}
+                    onChange={(e) => setApproveAmount(e.target.value)}
+                  />
+                </label>
+                <div className="row">
+                  <button
+                    className="btn primary"
+                    type="submit"
+                    disabled={loading}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => refreshAllowance()}
+                    disabled={loading}
+                  >
+                    Refresh my Allowance
+                  </button>
+                </div>
+              </div>
+            </form>
 
-        <form className="card" onSubmit={onDeposit}>
-          <h3>Deposit</h3>
-          <div className="section">
-            <label>
-              Stream ID
-              <input
-                className="input"
-                required
-                type="number"
-                min="0"
-                value={depositStreamId}
-                onChange={(e) => setDepositStreamId(e.target.value)}
-              />
-            </label>
-            <label>
-              Amount (USDC)
-              <input
-                className="input"
-                required
-                type="number"
-                min="1"
-                value={depositAmount}
-                onChange={(e) => setDepositAmount(e.target.value)}
-              />
-            </label>
-            <button className="btn primary" type="submit" disabled={loading}>
-              Deposit
-            </button>
-          </div>
-        </form>
+            <form className="card" onSubmit={onCreateStream}>
+              <h3>Create Stream</h3>
+              <div className="section">
+                <label>
+                  Employee Address
+                  <input
+                    className="input"
+                    required
+                    value={employee}
+                    onChange={(e) => setEmployee(e.target.value)}
+                    placeholder="0x..."
+                  />
+                </label>
+                <label>
+                  Total Amount (USDC)
+                  <input
+                    className="input"
+                    required
+                    type="number"
+                    min="0"
+                    value={totalAmount}
+                    onChange={(e) => setTotalAmount(e.target.value)}
+                  />
+                </label>
+                <label>
+                  Duration (seconds)
+                  <input
+                    className="input"
+                    required
+                    type="number"
+                    min="1"
+                    value={duration}
+                    onChange={(e) => setDuration(e.target.value)}
+                  />
+                </label>
+                <button
+                  className="btn primary"
+                  type="submit"
+                  disabled={loading}
+                >
+                  Create
+                </button>
+              </div>
+            </form>
 
-        <form className="card" onSubmit={onWithdraw}>
-          <h3>Withdraw</h3>
-          <div className="section">
-            <label>
-              Stream ID
-              <input
-                className="input"
-                required
-                type="number"
-                min="0"
-                value={withdrawStreamId}
-                onChange={(e) => setWithdrawStreamId(e.target.value)}
-              />
-            </label>
-            <button className="btn primary" type="submit" disabled={loading}>
-              Withdraw
-            </button>
-          </div>
-        </form>
+            <form className="card" onSubmit={onDeposit}>
+              <h3>Deposit</h3>
+              <div className="section">
+                <label>
+                  Stream ID
+                  <input
+                    className="input"
+                    required
+                    type="number"
+                    min="0"
+                    value={depositStreamId}
+                    onChange={(e) => setDepositStreamId(e.target.value)}
+                  />
+                </label>
+                <label>
+                  Amount (USDC)
+                  <input
+                    className="input"
+                    required
+                    type="number"
+                    min="1"
+                    value={depositAmount}
+                    onChange={(e) => setDepositAmount(e.target.value)}
+                  />
+                </label>
+                <button
+                  className="btn primary"
+                  type="submit"
+                  disabled={loading}
+                >
+                  Deposit
+                </button>
+              </div>
+            </form>
+          </>
+        )}
+
+        {view === "employee" && (
+          <>
+            <div className="card">
+              <h3>My Streams</h3>
+              <div className="section">
+                <div className="row">
+                  <button
+                    className="btn primary"
+                    onClick={onLoadEmployeeStreams}
+                    disabled={loading}
+                  >
+                    Load My Streams
+                  </button>
+                </div>
+                {employeeStreams.length > 0 && (
+                  <div className="section" style={{ marginTop: 8 }}>
+                    {employeeStreams.map((s) => (
+                      <div key={s.id} className="section" style={{ gap: 6 }}>
+                        <LabelValue label="Stream ID" value={s.id} />
+                        <LabelValue
+                          label="Claimable (USDC)"
+                          value={formatUnits(s.vested, USDC_DECIMALS)}
+                        />
+                        <div className="divider" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <form className="card" onSubmit={onWithdraw}>
+              <h3>Withdraw</h3>
+              <div className="section">
+                <button
+                  className="btn primary"
+                  type="submit"
+                  disabled={loading}
+                >
+                  Withdraw Vested
+                </button>
+                {withdrawMessage && (
+                  <span className="value" style={{ marginTop: 8 }}>
+                    {withdrawMessage}
+                  </span>
+                )}
+              </div>
+            </form>
+          </>
+        )}
       </div>
 
       <p className="subtle">
