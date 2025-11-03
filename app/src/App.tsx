@@ -16,9 +16,9 @@ import { getErc20 } from "./lib/erc20";
 
 function LabelValue({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
-      <strong style={{ minWidth: 160 }}>{label}</strong>
-      <span>{value}</span>
+    <div className="kv">
+      <span className="label">{label}</span>
+      <span className="value">{value}</span>
     </div>
   );
 }
@@ -211,84 +211,63 @@ export default function App() {
   }
 
   return (
-    <div
-      style={{
-        fontFamily:
-          "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial",
-        padding: 24,
-        maxWidth: 920,
-        margin: "0 auto",
-      }}
-    >
-      <h1 style={{ marginTop: 0 }}>Payroll Escrow DApp</h1>
-      <div
-        style={{
-          display: "flex",
-          gap: 12,
-          flexWrap: "wrap",
-          alignItems: "center",
-          marginBottom: 12,
-        }}
-      >
-        <button
-          onClick={onConnect}
-          disabled={loading}
-          style={{ padding: "8px 12px", fontWeight: 600 }}
-        >
-          {address ? `Connected: ${shortAddr}` : "Connect Wallet"}
-        </button>
-        <span>
-          Chain ID: {chainId ?? "—"} (expected {CHAIN_ID})
-        </span>
+    <div className="arc-container">
+      <div className="arc-header">
+        <h1 className="arc-title">Payroll Escrow</h1>
+        <div className="controls">
+          <button
+            className="btn primary"
+            onClick={onConnect}
+            disabled={loading}
+          >
+            {address ? `Connected: ${shortAddr}` : "Connect Wallet"}
+          </button>
+        </div>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gap: 16,
-          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-        }}
-      >
-        <div
-          style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 16 }}
-        >
-          <h3 style={{ marginTop: 0 }}>Contract</h3>
-          <LabelValue label="Address" value={shortContract} />
-          <LabelValue
-            label="USDC"
-            value={USDC_ADDRESS.slice(0, 5) + "…" + USDC_ADDRESS.slice(-3)}
-          />
-          <LabelValue label="Stream Counter" value={streamCounter} />
-          <div style={{ marginTop: 8 }}>
-            <button onClick={refreshCounter} disabled={loading}>
-              Refresh
-            </button>
+      <div className="grid">
+        <div className="card">
+          <h3>Contract</h3>
+          <div className="section">
+            <LabelValue label="Address" value={shortContract} />
+            <LabelValue
+              label="USDC"
+              value={USDC_ADDRESS.slice(0, 5) + "…" + USDC_ADDRESS.slice(-3)}
+            />
+            <LabelValue label="Stream Counter" value={streamCounter} />
+            <div className="row">
+              <button
+                className="btn"
+                onClick={refreshCounter}
+                disabled={loading}
+              >
+                Refresh
+              </button>
+            </div>
           </div>
         </div>
 
-        <form
-          onSubmit={onApprove}
-          style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 16 }}
-        >
-          <h3 style={{ marginTop: 0 }}>Approve USDC</h3>
-          <div style={{ display: "grid", gap: 8 }}>
+        <form className="card" onSubmit={onApprove}>
+          <h3>Approve USDC</h3>
+          <div className="section">
             <LabelValue label="Current Allowance" value={allowance} />
             <label>
               Amount to Approve (USDC)
               <input
+                className="input"
                 required
                 type="number"
                 min="0"
                 value={approveAmount}
                 onChange={(e) => setApproveAmount(e.target.value)}
-                style={{ width: "100%" }}
               />
             </label>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button type="submit" disabled={loading}>
+            <div className="row">
+              <button className="btn primary" type="submit" disabled={loading}>
                 Approve
               </button>
               <button
+                className="btn"
                 type="button"
                 onClick={() => refreshAllowance()}
                 disabled={loading}
@@ -299,28 +278,25 @@ export default function App() {
           </div>
         </form>
 
-        <form
-          onSubmit={onFetchStream}
-          style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 16 }}
-        >
-          <h3 style={{ marginTop: 0 }}>Get Stream</h3>
-          <div style={{ display: "grid", gap: 8 }}>
+        <form className="card" onSubmit={onFetchStream}>
+          <h3>Get Stream</h3>
+          <div className="section">
             <label>
               Stream ID
               <input
+                className="input"
                 required
                 type="number"
                 min="0"
                 value={queryStreamId}
                 onChange={(e) => setQueryStreamId(e.target.value)}
-                style={{ width: "100%" }}
               />
             </label>
-            <button type="submit" disabled={loading}>
+            <button className="btn primary" type="submit" disabled={loading}>
               Fetch
             </button>
             {queriedStream && (
-              <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+              <div className="section" style={{ marginTop: 8 }}>
                 <LabelValue label="Employer" value={queriedStream.employer} />
                 <LabelValue label="Employee" value={queriedStream.employee} />
                 <LabelValue
@@ -349,109 +325,100 @@ export default function App() {
           </div>
         </form>
 
-        <form
-          onSubmit={onCreateStream}
-          style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 16 }}
-        >
-          <h3 style={{ marginTop: 0 }}>Create Stream</h3>
-          <div style={{ display: "grid", gap: 8 }}>
+        <form className="card" onSubmit={onCreateStream}>
+          <h3>Create Stream</h3>
+          <div className="section">
             <label>
               Employee Address
               <input
+                className="input"
                 required
                 value={employee}
                 onChange={(e) => setEmployee(e.target.value)}
                 placeholder="0x..."
-                style={{ width: "100%" }}
               />
             </label>
             <label>
               Total Amount (USDC)
               <input
+                className="input"
                 required
                 type="number"
                 min="0"
                 value={totalAmount}
                 onChange={(e) => setTotalAmount(e.target.value)}
-                style={{ width: "100%" }}
               />
             </label>
             <label>
               Duration (seconds)
               <input
+                className="input"
                 required
                 type="number"
                 min="1"
                 value={duration}
                 onChange={(e) => setDuration(e.target.value)}
-                style={{ width: "100%" }}
               />
             </label>
-            <button type="submit" disabled={loading}>
+            <button className="btn primary" type="submit" disabled={loading}>
               Create
             </button>
           </div>
         </form>
 
-        <form
-          onSubmit={onDeposit}
-          style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 16 }}
-        >
-          <h3 style={{ marginTop: 0 }}>Deposit</h3>
-          <div style={{ display: "grid", gap: 8 }}>
+        <form className="card" onSubmit={onDeposit}>
+          <h3>Deposit</h3>
+          <div className="section">
             <label>
               Stream ID
               <input
+                className="input"
                 required
                 type="number"
                 min="0"
                 value={depositStreamId}
                 onChange={(e) => setDepositStreamId(e.target.value)}
-                style={{ width: "100%" }}
               />
             </label>
             <label>
               Amount (USDC)
               <input
+                className="input"
                 required
                 type="number"
                 min="1"
                 value={depositAmount}
                 onChange={(e) => setDepositAmount(e.target.value)}
-                style={{ width: "100%" }}
               />
             </label>
-            <button type="submit" disabled={loading}>
+            <button className="btn primary" type="submit" disabled={loading}>
               Deposit
             </button>
           </div>
         </form>
 
-        <form
-          onSubmit={onWithdraw}
-          style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 16 }}
-        >
-          <h3 style={{ marginTop: 0 }}>Withdraw</h3>
-          <div style={{ display: "grid", gap: 8 }}>
+        <form className="card" onSubmit={onWithdraw}>
+          <h3>Withdraw</h3>
+          <div className="section">
             <label>
               Stream ID
               <input
+                className="input"
                 required
                 type="number"
                 min="0"
                 value={withdrawStreamId}
                 onChange={(e) => setWithdrawStreamId(e.target.value)}
-                style={{ width: "100%" }}
               />
             </label>
-            <button type="submit" disabled={loading}>
+            <button className="btn primary" type="submit" disabled={loading}>
               Withdraw
             </button>
           </div>
         </form>
       </div>
 
-      <p style={{ marginTop: 24, color: "#6b7280" }}>
+      <p className="subtle">
         Note: USDC transfers require sufficient allowance to the escrow contract
         for deposits, and sufficient escrow balance for withdrawals.
       </p>
