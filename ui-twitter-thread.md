@@ -20,6 +20,7 @@ Connect → Fill form → Click button. That's the whole flow.
 ✨ Complex DeFi interaction? Nah.
 
 We made it:
+
 - 3 fields to create a stream
 - 1 button to withdraw
 - Automatic approvals built-in
@@ -46,4 +47,3 @@ No waiting for "perfect". No committee approvals. Just build → ship → improv
 That's how we make stuff. Simple. Fast. Real.
 
 Built on @arcadexyz ⚡️
-
