@@ -50,6 +50,10 @@ export default function App() {
     Array<{ id: string; vested: string }>
   >([]);
   const [withdrawMessage, setWithdrawMessage] = useState<string>("");
+  const [newlyCreatedStreamId, setNewlyCreatedStreamId] = useState<
+    string | null
+  >(null);
+  const [showDepositPrompt, setShowDepositPrompt] = useState<boolean>(false);
 
   const shortAddr = useMemo(
     () => (address ? address.slice(0, 6) + "…" + address.slice(-4) : ""),
@@ -140,19 +144,72 @@ export default function App() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { signer } = await connectWallet();
+      const { signer, address: owner } = await connectWallet();
       const contract = await getPayrollContract(signer);
       const amountBase = parseUnits(
         (totalAmount || "0") as `${number}` | `${bigint}` | string,
         USDC_DECIMALS
       );
+
+      // Check allowance first
+      const usdc = getErc20(USDC_ADDRESS, signer);
+      const currentAllowance = await usdc.allowance(
+        owner,
+        PAYROLL_ESCROW_ADDRESS
+      );
+
+      if (BigInt(currentAllowance.toString()) < BigInt(amountBase.toString())) {
+        // Need to approve first
+        const approveTx = await usdc.approve(
+          PAYROLL_ESCROW_ADDRESS,
+          amountBase
+        );
+        await approveTx.wait();
+        await refreshAllowance(owner);
+      }
+
+      // Create the stream
       const tx = await contract.createStream(employee, amountBase, duration);
       await tx.wait();
+
+      // Get the new stream ID from the counter
+      const newCounter = await contract.streamCounter();
+      const newStreamId = (BigInt(newCounter.toString()) - 1n).toString();
+
       await refreshCounter();
+      await refreshAllowance(owner);
+
+      // Set up for deposit prompt
+      setNewlyCreatedStreamId(newStreamId);
+      setDepositStreamId(newStreamId);
+      setDepositAmount(totalAmount);
+      setShowDepositPrompt(true);
+
+      // Don't clear form yet - wait for deposit
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onDepositAfterCreate() {
+    if (!newlyCreatedStreamId) return;
+    setLoading(true);
+    try {
+      const { signer } = await connectWallet();
+      const contract = await getPayrollContract(signer);
+      const amountBase = parseUnits(depositAmount || "0", USDC_DECIMALS);
+      const tx = await contract.deposit(newlyCreatedStreamId, amountBase);
+      await tx.wait();
       await refreshAllowance();
+
+      // Clear everything after successful deposit
+      setShowDepositPrompt(false);
+      setNewlyCreatedStreamId(null);
       setEmployee("");
       setTotalAmount("0");
       setDuration("0");
+      setDepositStreamId("0");
+      setDepositAmount("0");
     } finally {
       setLoading(false);
     }
@@ -334,7 +391,7 @@ export default function App() {
               </div>
             </div>
 
-            <form className="card" onSubmit={onApprove}>
+            {/* <form className="card" onSubmit={onApprove}>
               <h3>Approve USDC</h3>
               <div className="section">
                 <LabelValue label="Current Allowance" value={allowance} />
@@ -367,7 +424,7 @@ export default function App() {
                   </button>
                 </div>
               </div>
-            </form>
+            </form> */}
 
             <form className="card" onSubmit={onCreateStream}>
               <h3>Create Stream</h3>
@@ -409,12 +466,12 @@ export default function App() {
                   type="submit"
                   disabled={loading}
                 >
-                  Create
+                  Create Stream
                 </button>
               </div>
             </form>
 
-            <form className="card" onSubmit={onDeposit}>
+            {/* <form className="card" onSubmit={onDeposit}>
               <h3>Deposit</h3>
               <div className="section">
                 <label>
@@ -447,7 +504,7 @@ export default function App() {
                   Deposit
                 </button>
               </div>
-            </form>
+            </form> */}
           </>
         )}
 
@@ -480,11 +537,8 @@ export default function App() {
                   </div>
                 )}
               </div>
-            </div>
-
-            <form className="card" onSubmit={onWithdraw}>
-              <h3>Withdraw</h3>
-              <div className="section">
+              <form onSubmit={onWithdraw}>
+                <h3>Withdraw</h3>
                 <button
                   className="btn primary"
                   type="submit"
@@ -497,16 +551,11 @@ export default function App() {
                     {withdrawMessage}
                   </span>
                 )}
-              </div>
-            </form>
+              </form>
+            </div>
           </>
         )}
       </div>
-
-      <p className="subtle">
-        Note: USDC transfers require sufficient allowance to the escrow contract
-        for deposits, and sufficient escrow balance for withdrawals.
-      </p>
     </div>
   );
 }
