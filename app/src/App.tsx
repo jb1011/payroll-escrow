@@ -293,7 +293,7 @@ export default function App() {
                 onClick={() => refreshAllowance()}
                 disabled={loading}
               >
-                Refresh Allowance
+                Refresh my Allowance
               </button>
             </div>
           </div>
