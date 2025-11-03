@@ -59,25 +59,24 @@ contract PayrollEscrow is ReentrancyGuard, Ownable {
     /**
      * @notice Creates a new pay stream
      * @param _employee Address of the employee receiving payments
-     * @param _totalAmount Total USDC amount to stream
+     * @param _totalAmount Total USDC amount to stream (if > 0, will be deposited immediately)
      * @param _duration Duration of the stream in seconds
      */
     function createStream(
         address _employee,
         uint256 _totalAmount,
         uint256 _duration
-    ) external returns (uint256 streamId) {
+    ) external nonReentrant returns (uint256 streamId) {
         require(_employee != address(0), "Invalid employee address");
         require(_employee != msg.sender, "Cannot stream to self");
         require(_duration > 0, "Duration must be greater than 0");
-        // Allow _totalAmount to be 0 if depositing separately
         
         streamId = streamCounter++;
         
         streams[streamId] = Stream({
             employer: msg.sender,
             employee: _employee,
-            totalAmount: _totalAmount,
+            totalAmount: 0, // Start at 0, will be set by deposit
             startTime: block.timestamp,
             endTime: block.timestamp + _duration,
             withdrawnAmount: 0,
@@ -96,6 +95,16 @@ contract PayrollEscrow is ReentrancyGuard, Ownable {
             block.timestamp,
             block.timestamp + _duration
         );
+        
+        // If totalAmount > 0, deposit immediately
+        if (_totalAmount > 0) {
+            streams[streamId].totalAmount = _totalAmount;
+            require(
+                usdc.transferFrom(msg.sender, address(this), _totalAmount),
+                "USDC transfer failed"
+            );
+            emit FundsDeposited(streamId, msg.sender, _totalAmount);
+        }
         
         return streamId;
     }
