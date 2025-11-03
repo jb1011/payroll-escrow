@@ -3,7 +3,7 @@ import payroll from "../../../out/PayrollEscrow.sol/PayrollEscrow.json";
 
 export const CHAIN_ID = 5042002;
 export const PAYROLL_ESCROW_ADDRESS =
-  "0xa29a0e473fee3c99b38ab2354562ebb6e454047f";
+  "0xa421D25E734c295EA3cE01d8e3001c3389f14A68";
 export const USDC_ADDRESS = "0x3600000000000000000000000000000000000000";
 export const USDC_DECIMALS = 6;
 
