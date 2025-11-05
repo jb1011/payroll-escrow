@@ -1,4 +1,3 @@
-import type { Abi } from "ethers";
 import payroll from "../../../out/PayrollEscrow.sol/PayrollEscrow.json";
 
 export const CHAIN_ID = 5042002;
@@ -7,4 +6,4 @@ export const PAYROLL_ESCROW_ADDRESS =
 export const USDC_ADDRESS = "0x3600000000000000000000000000000000000000";
 export const USDC_DECIMALS = 6;
 
-export const PAYROLL_ESCROW_ABI = (payroll as any).abi as Abi;
+export const PAYROLL_ESCROW_ABI = (payroll as any).abi as any;
