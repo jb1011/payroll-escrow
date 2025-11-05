@@ -1,4 +1,4 @@
-import payroll from "../../../out/PayrollEscrow.sol/PayrollEscrow.json";
+import payroll from "./abi/PayrollEscrow.json";
 
 export const CHAIN_ID = 5042002;
 export const PAYROLL_ESCROW_ADDRESS =
