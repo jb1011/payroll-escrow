@@ -1,11 +1,6 @@
-import {
-  Contract,
-  type Abi,
-  type BrowserProvider,
-  type JsonRpcSigner,
-} from "ethers";
+import { Contract, type BrowserProvider, type JsonRpcSigner } from "ethers";
 
-export const ERC20_ABI: Abi = [
+export const ERC20_ABI = [
   {
     inputs: [],
     name: "decimals",
